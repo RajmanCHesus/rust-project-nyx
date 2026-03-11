@@ -9,6 +9,7 @@ struct Args {
     #[arg(value_name = "FILE")]
     input: String,
 
+    
     /// Output file path
     #[arg(value_name = "FILE")]
     output: String,
