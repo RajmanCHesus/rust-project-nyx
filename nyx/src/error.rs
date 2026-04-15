@@ -24,3 +24,22 @@ impl fmt::Display for NyxError {
 impl std::error::Error for NyxError {}
 
 pub type NyxResult<T> = Result<T, NyxError>;
+
+// Convert from external error types
+impl From<hound::Error> for NyxError {
+    fn from(err: hound::Error) -> Self {
+        NyxError::IoError(format!("Hound error: {}", err))
+    }
+}
+
+impl From<image::ImageError> for NyxError {
+    fn from(err: image::ImageError) -> Self {
+        NyxError::IoError(format!("Image error: {}", err))
+    }
+}
+
+impl From<std::io::Error> for NyxError {
+    fn from(err: std::io::Error) -> Self {
+        NyxError::IoError(format!("IO error: {}", err))
+    }
+}

@@ -1,5 +1,10 @@
 use clap::Parser;
 use nyx::error::NyxResult;
+use nyx::parser;
+use nyx::transform::{Transformer, audio_to_image::AudioToSpectrogramTransformer, image_to_audio::SpectrogramToAudioTransformer};
+use nyx::render::Renderer;
+use nyx::render::image::SpectrogramRenderer;
+use nyx::render::audio::AudioRenderer;
 
 #[derive(Parser, Debug)]
 #[command(name = "nyx")]
@@ -9,7 +14,6 @@ struct Args {
     #[arg(value_name = "FILE")]
     input: String,
 
-    
     /// Output file path
     #[arg(value_name = "FILE")]
     output: String,
@@ -17,6 +21,14 @@ struct Args {
     /// Transformation mode: audio-to-image, image-to-audio, text-to-audio
     #[arg(short, long, default_value = "audio-to-image")]
     mode: String,
+
+    /// FFT size (default: 1024)
+    #[arg(long, default_value = "1024")]
+    fft_size: usize,
+
+    /// Hop size / stride (default: 512)
+    #[arg(long, default_value = "512")]
+    hop_size: usize,
 }
 
 fn main() -> NyxResult<()> {
@@ -24,17 +36,45 @@ fn main() -> NyxResult<()> {
     
     match args.mode.as_str() {
         "audio-to-image" => {
-            println!("Transforming audio {} → {}", args.input, args.output);
-            // TODO: Implement audio-to-image transformation
-            println!("Not yet implemented");
+            println!("Transforming audio → spectrogram: {} → {}", args.input, args.output);
+            
+            // Parse WAV file
+            println!("  [1/3] Parsing audio...");
+            let audio = parser::parse_audio(&args.input)?;
+            
+            // Transform to spectrogram
+            println!("  [2/3] Computing spectrogram (FFT size: {}, hop: {})...", args.fft_size, args.hop_size);
+            let transformer = AudioToSpectrogramTransformer::new(args.fft_size, args.hop_size);
+            let spectrogram = transformer.transform(audio)?;
+            
+            // Render to PNG
+            println!("  [3/3] Rendering spectrogram to PNG...");
+            let renderer = SpectrogramRenderer::default();
+            renderer.render(spectrogram, &args.output)?;
+            
+            println!("✓ Spectrogram saved to {}", args.output);
         }
         "image-to-audio" => {
-            println!("Transforming image {} → {}", args.input, args.output);
-            // TODO: Implement image-to-audio transformation
-            println!("Not yet implemented");
+            println!("Transforming spectrogram → audio: {} → {}", args.input, args.output);
+            
+            // Parse PNG spectrogram
+            println!("  [1/3] Parsing spectrogram image...");
+            let image = parser::parse_image(&args.input)?;
+            
+            // Transform to audio via inverse spectrogram
+            println!("  [2/3] Computing inverse spectrogram (iFFT, hop: {})...", args.hop_size);
+            let transformer = SpectrogramToAudioTransformer::new(44100, args.hop_size);
+            let audio = transformer.transform(image)?;
+            
+            // Render to WAV
+            println!("  [3/3] Rendering audio to WAV...");
+            let renderer = AudioRenderer::default();
+            renderer.render(audio, &args.output)?;
+            
+            println!("✓ Audio saved to {}", args.output);
         }
         _ => {
-            eprintln!("Unknown mode: {}", args.mode);
+            eprintln!("Unknown mode: {}. Use 'audio-to-image' or 'image-to-audio'", args.mode);
         }
     }
 
