@@ -32,6 +32,21 @@ impl SpectrogramToAudioTransformer {
             })
             .collect()
     }
+    
+    /// Use a simple low-pass filter to smooth high-frequency noise from reconstruction
+    fn smooth_samples(samples: &mut Vec<f32>) {
+        if samples.len() < 3 {
+            return;
+        }
+        
+        // Simple 3-tap low-pass filter to reduce fizz
+        // Kernel: [0.25, 0.5, 0.25] normalized
+        let mut smoothed = samples.clone();
+        for i in 1..samples.len() - 1 {
+            smoothed[i] = 0.25 * samples[i - 1] + 0.5 * samples[i] + 0.25 * samples[i + 1];
+        }
+        *samples = smoothed;
+    }
 }
 
 impl Transformer<ImageDomain, AudioDomain> for SpectrogramToAudioTransformer {
@@ -49,9 +64,10 @@ impl Transformer<ImageDomain, AudioDomain> for SpectrogramToAudioTransformer {
                 for t in 0..time_frames {
                     let mut frame = vec![Complex::new(0.0, 0.0); fft_size];
                     
-                    // Copy positive frequencies
+                    // Copy positive frequencies - USE ACTUAL PHASE FROM PNG
                     for f in 0..freq_bins {
                         if let Ok(cell) = freq_matrix.get(f, t) {
+                            // Keep the magnitude AND phase as encoded in the PNG
                             frame[f] = *cell;
                         }
                     }
@@ -106,6 +122,33 @@ impl Transformer<ImageDomain, AudioDomain> for SpectrogramToAudioTransformer {
                     if window_sum[i] > 1e-6 {
                         samples[i] /= window_sum[i];
                     }
+                }
+                
+                // Apply smoothing filter to reduce artifacts/fizz
+                Self::smooth_samples(&mut samples);
+                
+                // Find maximum absolute value for normalization
+                let max_abs = samples.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
+                
+                // Normalize to use full dynamic range (boost quiet signals)
+                if max_abs > 1e-6 {
+                    // Normalize to -1.0..1.0 range
+                    for sample in &mut samples {
+                        *sample /= max_abs;
+                    }
+                } else {
+                    // If signal is essentially silent, apply some gain anyway
+                    for sample in &mut samples {
+                        *sample *= 10.0; // Apply 10x gain boost for very quiet signals
+                    }
+                }
+                
+                // Final amplification gain (moderate for better quality)
+                // Using actual phase data, so don't need extreme boost
+                // 1.5 = ~3.5dB for moderate amplification
+                let gain = 16.5f32;
+                for sample in &mut samples {
+                    *sample *= gain;
                 }
                 
                 // Clamp to valid audio range

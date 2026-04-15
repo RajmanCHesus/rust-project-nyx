@@ -16,6 +16,11 @@ pub fn parse_image<P: AsRef<Path>>(path: P) -> NyxResult<ImageDomain> {
     image::parse_image(path)
 }
 
+/// Parse spectrogram image and convert to frequency domain (complex values)
+pub fn parse_spectrogram<P: AsRef<Path>>(path: P) -> NyxResult<ImageDomain> {
+    image::rgb_to_frequency(path)
+}
+
 /// Parse text file
 pub fn parse_text<P: AsRef<Path>>(path: P) -> NyxResult<TextDomain> {
     text::parse_text(path)

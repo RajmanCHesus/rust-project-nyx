@@ -57,9 +57,9 @@ fn main() -> NyxResult<()> {
         "image-to-audio" => {
             println!("Transforming spectrogram → audio: {} → {}", args.input, args.output);
             
-            // Parse PNG spectrogram
-            println!("  [1/3] Parsing spectrogram image...");
-            let image = parser::parse_image(&args.input)?;
+            // Parse PNG spectrogram and decode to frequency domain
+            println!("  [1/3] Parsing spectrogram image (decoding phase information)...");
+            let image = parser::parse_spectrogram(&args.input)?;
             
             // Transform to audio via inverse spectrogram
             println!("  [2/3] Computing inverse spectrogram (iFFT, hop: {})...", args.hop_size);

@@ -28,14 +28,18 @@ impl Renderer<ImageDomain> for SpectrogramRenderer {
     fn render(&self, input: ImageDomain, output_path: &str) -> NyxResult<()> {
         match input {
             ImageDomain::Frequency(matrix) => {
-                // Extract magnitudes from complex matrix
-                let magnitudes: Vec<f32> = matrix
-                    .data()
+                let (freq_bins, time_frames) = matrix.dimensions();
+                
+                // Extract magnitudes and phases from complex matrix
+                let data = matrix.data();
+                let magnitudes: Vec<f32> = data
                     .iter()
                     .map(|c| c.norm())
                     .collect();
-
-                let (freq_bins, time_frames) = matrix.dimensions();
+                let phases: Vec<f32> = data
+                    .iter()
+                    .map(|c| c.arg())
+                    .collect();
 
                 // Compute min/max for normalization
                 let min_mag = magnitudes
@@ -47,20 +51,30 @@ impl Renderer<ImageDomain> for SpectrogramRenderer {
                     .cloned()
                     .fold(f32::NEG_INFINITY, f32::max);
 
-                // Convert to image buffer
+                // Convert to image buffer with phase encoding
                 let mut img_data = vec![0u8; freq_bins * time_frames * 3]; // RGB
 
-                for (i, &mag) in magnitudes.iter().enumerate() {
-                    let pixel_val = if self.normalize && max_mag > min_mag {
+                for (i, (&mag, &phase)) in magnitudes.iter().zip(phases.iter()).enumerate() {
+                    // R channel: magnitude
+                    let mag_val = if self.normalize && max_mag > min_mag {
                         self.magnitude_to_pixel(mag, min_mag, max_mag)
                     } else {
                         (mag.clamp(0.0, 255.0)) as u8
                     };
+                    
+                    // G and B channels: phase (encoded as 0-255 where -π maps to 0, π maps to 255)
+                    // Normalize phase from [-π, π] to [0, 255]
+                    let phase_normalized = ((phase + std::f32::consts::PI) / (2.0 * std::f32::consts::PI)) * 255.0;
+                    let phase_g = phase_normalized as u8;
+                    
+                    // For B channel, encode a second bit of phase precision
+                    let phase_fraction = phase_normalized - (phase_normalized.floor());
+                    let phase_b = (phase_fraction * 255.0) as u8;
 
                     let base_idx = i * 3;
-                    img_data[base_idx] = pixel_val;
-                    img_data[base_idx + 1] = pixel_val;
-                    img_data[base_idx + 2] = pixel_val;
+                    img_data[base_idx] = mag_val;
+                    img_data[base_idx + 1] = phase_g;
+                    img_data[base_idx + 2] = phase_b;
                 }
 
                 // Create image (frequency × time)

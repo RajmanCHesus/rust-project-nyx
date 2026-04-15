@@ -65,10 +65,10 @@ fn main() -> NyxResult<()> {
     println!("  ✓ Loaded: {}×{} pixels", width, height);
     println!("  (Frequency bins × Time frames)\n");
 
-    // Step 2: Convert RGB pixels to frequency spectrum
+    // Step 2: Convert RGB pixels to frequency spectrum WITH PHASE DECODING
     println!("Step 2: Converting pixels to frequency spectrum...");
-    println!("  Mapping: pixel grayscale value → complex magnitude");
-    let frequency_spectrum_domain = image_to_frequency_spectrum(image_domain)?;
+    println!("  Decoding: R=magnitude, G+B=phase information");
+    let frequency_spectrum_domain = image_to_frequency_spectrum_with_phase(image_domain)?;
 
     if let ImageDomain::Frequency(freq_matrix) = &frequency_spectrum_domain {
         let (freq_bins, time_frames) = freq_matrix.dimensions();
@@ -109,11 +109,68 @@ fn main() -> NyxResult<()> {
     Ok(())
 }
 
-/// Convert RGB image pixels back to frequency spectrum (inverse grayscale encoding)
+/// Convert RGB image pixels back to frequency spectrum WITH PHASE DECODING
 ///
-/// This reconstructs the magnitude spectrum from pixel brightness:
-/// - Pixel value 0-255 → magnitude 0.0-1.0
-/// - Stored in complex format (magnitude only, phase = 0)
+/// This properly reconstructs the magnitude+phase spectrum from the encoded PNG:
+/// - R channel (0-255) → magnitude (0.0-1.0) 
+/// - G channel (0-255) → coarse phase (-π to π)
+/// - B channel (0-255) → fine phase precision
+///
+/// This preserves the phase information needed for high-quality audio reconstruction.
+fn image_to_frequency_spectrum_with_phase(
+    image_domain: ImageDomain,
+) -> NyxResult<ImageDomain> {
+    use nyx::matrix::Matrix;
+    use num_complex::Complex;
+
+    let pixels_matrix = match image_domain {
+        ImageDomain::RGB(raster) => raster,
+        _ => {
+            return Err(nyx::error::NyxError::TransformError(
+                "Expected RGB image domain".to_string(),
+            ));
+        }
+    };
+
+    // Decode magnitude and phase from RGB channels
+    let (height, width) = pixels_matrix.dimensions();
+    let complex_data: Vec<Complex<f32>> = pixels_matrix
+        .data()
+        .iter()
+        .map(|pixel| {
+            let r = pixel.r as f32;
+            let g = pixel.g as f32;
+            let b = pixel.b as f32;
+            
+            // Decode magnitude from R channel (0-255 → 0.0-1.0)
+            let magnitude = r / 255.0;
+            
+            // Decode phase from G,B channels
+            // G gives coarse phase (-π to π), B gives fine precision
+            let phase_coarse = (g / 255.0) * 2.0 * std::f32::consts::PI - std::f32::consts::PI;
+            let phase_fine = (b / 255.0) * (1.0 / 256.0); // Sub-byte precision
+            let phase = phase_coarse + phase_fine;
+            
+            // Convert polar (magnitude, phase) to rectangular (real, imag)
+            Complex::from_polar(magnitude, phase)
+        })
+        .collect();
+
+    // Create frequency domain representation
+    let spectrum_matrix = Matrix::new(
+        complex_data,
+        height,
+        width,
+    )?;
+
+    Ok(ImageDomain::Frequency(spectrum_matrix))
+}
+
+/// DEPRECATED: Convert RGB image pixels back to frequency spectrum (magnitude only, no phase)
+/// 
+/// This old function throws away phase information from G,B channels.
+/// Use image_to_frequency_spectrum_with_phase instead for better audio quality.
+#[allow(dead_code)]
 fn image_to_frequency_spectrum(
     image_domain: ImageDomain,
 ) -> NyxResult<ImageDomain> {
