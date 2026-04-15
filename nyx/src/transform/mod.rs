@@ -1,5 +1,6 @@
 pub mod audio_to_image;
 pub mod image_to_audio;
+pub mod text_to_audio;
 
 use crate::error::NyxResult;
 use crate::intermediate::IntermediateData;

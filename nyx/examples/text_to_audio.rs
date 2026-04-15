@@ -49,7 +49,7 @@ fn main() -> NyxResult<()> {
 
     if let nyx::domains::AudioDomain::PCM { samples, sample_rate } = &audio_domain {
         println!("  ✓ Synthesis complete: {} samples", samples.len());
-        let duration = samples.len() as f32 / *sample_rate as f32;
+        let duration = samples.len() as f32 / sample_rate as f32;
         println!("  Sample rate: {} Hz", sample_rate);
         println!("  Duration: {:.2} seconds\n", duration);
     }
