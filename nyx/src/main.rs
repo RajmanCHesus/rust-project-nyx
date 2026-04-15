@@ -1,7 +1,7 @@
 use clap::Parser;
 use nyx::error::NyxResult;
 use nyx::parser;
-use nyx::transform::{Transformer, audio_to_image::AudioToSpectrogramTransformer, image_to_audio::SpectrogramToAudioTransformer};
+use nyx::transform::{Transformer, audio_to_image::AudioToSpectrogramTransformer, image_to_audio::SpectrogramToAudioTransformer, text_to_audio::TextToAudioTransformer};
 use nyx::render::Renderer;
 use nyx::render::image::SpectrogramRenderer;
 use nyx::render::audio::AudioRenderer;
@@ -73,8 +73,27 @@ fn main() -> NyxResult<()> {
             
             println!("✓ Audio saved to {}", args.output);
         }
+        "text-to-audio" => {
+            println!("Transforming text → audio: {} → {}", args.input, args.output);
+
+            // Parse text
+            println!("  [1/3] Parsing text...");
+            let text_domain = parser::parse_text(&args.input)?;
+
+            // Transform to audio
+            println!("  [2/3] Synthesizing audio...");
+            let transformer = TextToAudioTransformer::default();
+            let audio = transformer.transform(text_domain)?;
+
+            // Render to WAV
+            println!("  [3/3] Rendering audio to WAV...");
+            let renderer = AudioRenderer::default();
+            renderer.render(audio, &args.output)?;
+
+            println!("✓ Audio saved to {}", args.output);
+        }
         _ => {
-            eprintln!("Unknown mode: {}. Use 'audio-to-image' or 'image-to-audio'", args.mode);
+            eprintln!("Unknown mode: {}. Use 'audio-to-image', 'image-to-audio', or 'text-to-audio'", args.mode);
         }
     }
 

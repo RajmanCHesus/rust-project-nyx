@@ -25,7 +25,7 @@ fn main() -> NyxResult<()> {
         eprintln!("  input.txt   Path to input text file");
         eprintln!("  output.wav  Path to output WAV file");
         std::process::exit(1);
-    }
+    } 
 
     let input_txt = &args[1];
     let output_wav = &args[2];
