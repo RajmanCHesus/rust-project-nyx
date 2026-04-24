@@ -4,13 +4,6 @@
 
 **A Rust system for bidirectional audio ↔ image transformations using FFT-based spectrograms.**
 
-## Status: Phase 3b Complete ✓
-
-- ✓ Audio → Spectrogram (visualization via FFT)
-- ✓ Spectrogram → Audio (reconstruction via inverse FFT)
-- ✓ CLI with configurable FFT parameters
-- ✓ Full test coverage (unit + integration tests)
-
 ## Quick Start
 
 ```bash
@@ -131,14 +124,6 @@ OutputFile
 - [FILE_FORMATS.md](FILE_FORMATS.md) — WAV/PNG/UTF-8 format reference
 - Inline comments in source code (minimal but comprehensive)
 
-## Next Steps
-
-1. **MP3 Support** — Add `symphonia` for compressed audio
-2. **Playback** — Add `rodio` for real-time audio output
-3. **Phase Preservation** — Binary format for full-fidelity roundtrip
-4. **Performance** — Benchmarks + optimization
-5. **Visual Mapping** — Pixel coordinates → frequency synthesis
-
 ## Build
 
 ```bash
@@ -147,7 +132,7 @@ cargo test --release       # All tests pass
 cargo run -- --help        # CLI help
 ```
 
-**Binary**: `target/release/nyx` (~6.2 MB unstripped)
+
 
 ---
 
